@@ -1,13 +1,21 @@
 import sys
 import os
+import importlib.util
 import pytest
 from unittest.mock import patch, MagicMock
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "xss"))
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "scanner-core"))
 
+# Load XSS scanner from specific file to avoid name conflict
+_spec = importlib.util.spec_from_file_location(
+    "xss_scanner",
+    os.path.join(os.path.dirname(__file__), "..", "xss", "scanner.py")
+)
+_module = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(_module)
+XssScanner = _module.XssScanner
+
 from sentinel_core import ScanTarget, ScanConfig, Severity
-from scanner import XssScanner
 
 SCAN_ID = "test-scan-xss-001"
 config = ScanConfig(max_requests_per_second=5, request_timeout=10)
@@ -21,6 +29,7 @@ def scanner():
 class TestReflectedXss:
 
     def test_unencoded_reflection_produces_finding(self, scanner):
+        # Should produce finding when payload is not encoded
         target = ScanTarget(url="http://example.com", scan_id=SCAN_ID, domain="example.com")
 
         crawl_html = '<form method="get" action="/search"><input name="q" value=""></form>'
@@ -30,7 +39,6 @@ class TestReflectedXss:
             params = kwargs.get("params", {})
             q = params.get("q", "")
             if q:
-                # Payload is not encoded and returned, XSS is present
                 r.text = f"<html><body>Result: {q}</body></html>"
             else:
                 r.text = crawl_html
@@ -45,7 +53,7 @@ class TestReflectedXss:
         assert xss[0].severity == Severity.HIGH
 
     def test_encoded_reflection_no_finding(self, scanner):
-        # False positive control: should not produce finding when payload is HTML-encoded
+        # Should not produce finding when payload is HTML-encoded
         target = ScanTarget(url="http://example.com", scan_id=SCAN_ID, domain="example.com")
 
         crawl_html = '<form method="get" action="/search"><input name="q" value=""></form>'
@@ -55,7 +63,6 @@ class TestReflectedXss:
             params = kwargs.get("params", {})
             q = params.get("q", "")
             if q:
-                # Encode edilmiş — güvenli
                 encoded = q.replace("<", "&lt;").replace(">", "&gt;")
                 r.text = f"<html><body>Result: {encoded}</body></html>"
             else:
