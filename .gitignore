@@ -61,6 +61,7 @@ yarn-error.log*
 SENTINEL_SPEC.md
 PROGRESS.md
 docs/progress/
+.gitmessage.txt
 
 # ─── Secrets — ASLA commit etme ───────────────────────────────────────
 *.pem
