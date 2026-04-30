@@ -1,0 +1,105 @@
+name: CI
+
+on:
+  push:
+    branches: [ master, main ]
+  pull_request:
+    branches: [ master, main ]
+
+jobs:
+
+  # ─── Python scanner tests ──────────────────────────────────────────
+  scanner-tests:
+    name: Scanner Tests (Python)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install scanner-core
+        run: pip install -e ./scanner-core
+
+      - name: Install test dependencies
+        run: pip install pytest pytest-mock requests beautifulsoup4
+
+      - name: Install scanner dependencies
+        run: |
+          pip install -r scanners/tls/requirements.txt || true
+          pip install -r scanners/xss/requirements.txt || true
+
+      - name: Run scanner tests
+        run: |
+          cd scanners
+          python -m pytest tests/ -v --tb=short
+
+  # ─── Spring Boot build and test ───────────────────────────────────────
+  api-gateway-build:
+    name: API Gateway Build (Java)
+    runs-on: ubuntu-latest
+
+    services:
+      # Test for PostgreSQL — check if migrations are working
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: sentinel
+          POSTGRES_USER: sentinel
+          POSTGRES_PASSWORD: sentinel_dev_pass
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      rabbitmq:
+        image: rabbitmq:3.13-alpine
+        env:
+          RABBITMQ_DEFAULT_USER: sentinel
+          RABBITMQ_DEFAULT_PASS: sentinel_dev_pass
+        ports:
+          - 5672:5672
+        options: >-
+          --health-cmd "rabbitmq-diagnostics ping"
+          --health-interval 15s
+          --health-timeout 10s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: "21"
+          distribution: "temurin"
+          cache: maven
+
+      - name: Build and test
+        working-directory: api-gateway
+        env:
+          SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/sentinel
+          SPRING_DATASOURCE_USERNAME: sentinel
+          SPRING_DATASOURCE_PASSWORD: sentinel_dev_pass
+          SPRING_DATA_REDIS_HOST: localhost
+          SPRING_RABBITMQ_HOST: localhost
+          SPRING_RABBITMQ_USERNAME: sentinel
+          SPRING_RABBITMQ_PASSWORD: sentinel_dev_pass
+          JWT_SECRET: ci-test-secret-key-min-32-chars-long
+        run: mvn verify --no-transfer-progress
