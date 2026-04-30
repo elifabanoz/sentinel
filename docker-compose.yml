@@ -68,6 +68,15 @@ services:
       rabbitmq:
         condition: service_healthy
 
+  # OWASP Juice Shop — sadece lokal entegrasyon testleri için
+  # Production'da bu servis OLMAMALI
+  juice-shop:
+    image: bkimminich/juice-shop:latest
+    ports:
+      - "3000:3000"
+    profiles:
+      - dev
+
 volumes:
   postgres-data:
   redis-data:
