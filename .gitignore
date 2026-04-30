@@ -57,6 +57,11 @@ yarn-error.log*
 *.swo
 *~
 
+# ─── Proje iç dokümanları — repoya gitmesin ───────────────────────────
+SENTINEL_SPEC.md
+PROGRESS.md
+docs/progress/
+
 # ─── Secrets — ASLA commit etme ───────────────────────────────────────
 *.pem
 *.key
