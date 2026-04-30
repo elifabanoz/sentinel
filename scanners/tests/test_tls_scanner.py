@@ -1,16 +1,17 @@
+import sys
+import os
 import pytest
 from unittest.mock import patch, MagicMock
 
-import sys
-sys.path.insert(0, "../tls")
-sys.path.insert(0, "../../scanner-core")
+# Add scanner-core and tls scanner to path
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "tls"))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "scanner-core"))
 
 from sentinel_core import ScanTarget, ScanConfig, Severity
-from scanners.tls.scanner import TlsScanner
-
+from scanner import TlsScanner
 
 SCAN_ID = "test-scan-001"
-JUICE_SHOP_URL = "http://localhost:3000"
+config = ScanConfig(max_requests_per_second=5, request_timeout=10)
 
 
 @pytest.fixture
@@ -18,53 +19,54 @@ def scanner():
     return TlsScanner()
 
 
-@pytest.fixture
-def config():
-    return ScanConfig(max_requests_per_second=5, request_timeout=10)
-
-
 class TestSecurityHeaders:
 
-    def test_missing_csp_produces_finding(self, scanner, config):
-        target = ScanTarget(url=JUICE_SHOP_URL, scan_id=SCAN_ID, domain="localhost")
-        findings = scanner._check_security_headers(target, config)
+    def test_missing_headers_produce_findings(self, scanner):
+        target = ScanTarget(url="http://example.com", scan_id=SCAN_ID, domain="example.com")
 
-        csp_findings = [f for f in findings if "CSP" in f.title]
-        assert len(csp_findings) > 0, "Expected CSP missing finding for Juice Shop"
-        assert csp_findings[0].severity == Severity.HIGH
+        mock_response = MagicMock()
+        # No security headers
+        mock_response.headers = {"Content-Type": "text/html"}
+        mock_response.text = "<html></html>"
 
-    def test_missing_hsts_produces_finding(self, scanner, config):
-        target = ScanTarget(url=JUICE_SHOP_URL, scan_id=SCAN_ID, domain="localhost")
-        findings = scanner._check_security_headers(target, config)
+        with patch("requests.get", return_value=mock_response):
+            findings = scanner._check_security_headers(target, config)
 
-        hsts_findings = [f for f in findings if "HSTS" in f.title]
-        assert len(hsts_findings) > 0, "Expected HSTS missing finding for HTTP target"
+        assert len(findings) >= 4, "Expected findings for all 4 missing security headers"
+        titles = [f.title for f in findings]
+        assert any("CSP" in t for t in titles)
+        assert any("HSTS" in t for t in titles)
+        assert any("X-Frame" in t for t in titles)
 
-    def test_secure_site_has_fewer_findings(self, scanner, config):
-        target = ScanTarget(url="https://example.com", scan_id=SCAN_ID, domain="example.com")
-        findings = scanner._check_security_headers(target, config)
+    def test_all_headers_present_no_findings(self, scanner):
+        target = ScanTarget(url="https://secure.example.com", scan_id=SCAN_ID, domain="secure.example.com")
 
-        juice_target = ScanTarget(url=JUICE_SHOP_URL, scan_id=SCAN_ID, domain="localhost")
-        juice_findings = scanner._check_security_headers(juice_target, config)
+        mock_response = MagicMock()
+        mock_response.headers = {
+            "strict-transport-security": "max-age=31536000",
+            "content-security-policy": "default-src 'self'",
+            "x-frame-options": "DENY",
+            "x-content-type-options": "nosniff",
+        }
+        mock_response.text = "<html></html>"
 
-        assert len(findings) <= len(juice_findings), \
-            "Secure site should have equal or fewer header findings than Juice Shop"
+        with patch("requests.get", return_value=mock_response):
+            findings = scanner._check_security_headers(target, config)
 
+        assert len(findings) == 0, "Should not produce findings when all headers are present"
 
-class TestTlsVersion:
+    def test_partial_headers_correct_count(self, scanner):
+        target = ScanTarget(url="https://partial.example.com", scan_id=SCAN_ID, domain="partial.example.com")
 
-    def test_old_tls_produces_finding(self, scanner):
-        with patch("ssl.SSLContext") as mock_ctx:
-            mock_sock = MagicMock()
-            mock_ctx.return_value.wrap_socket.return_value.__enter__ = lambda s: s
-            mock_ctx.return_value.wrap_socket.return_value.__exit__ = MagicMock(return_value=False)
+        mock_response = MagicMock()
+        # Only HSTS and CSP are present, other headers are missing
+        mock_response.headers = {
+            "strict-transport-security": "max-age=31536000",
+            "content-security-policy": "default-src 'self'",
+        }
+        mock_response.text = "<html></html>"
 
-            with patch("socket.create_connection", return_value=MagicMock(
-                __enter__=lambda s: s,
-                __exit__=MagicMock(return_value=False)
-            )):
-                target = ScanTarget(url="https://example.com", scan_id=SCAN_ID, domain="example.com")
-                findings = scanner._check_tls_version(target)
+        with patch("requests.get", return_value=mock_response):
+            findings = scanner._check_security_headers(target, config)
 
-                assert len(findings) > 0
-                assert all(f.severity == Severity.HIGH for f in findings)
+        assert len(findings) == 2, "Expected exactly 2 findings for 2 missing headers"

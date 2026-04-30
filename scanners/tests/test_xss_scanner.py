@@ -1,66 +1,70 @@
+import sys
+import os
 import pytest
 from unittest.mock import patch, MagicMock
 
-import sys
-sys.path.insert(0, "../xss")
-sys.path.insert(0, "../../scanner-core")
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "xss"))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "scanner-core"))
 
 from sentinel_core import ScanTarget, ScanConfig, Severity
-
+from scanner import XssScanner
 
 SCAN_ID = "test-scan-xss-001"
+config = ScanConfig(max_requests_per_second=5, request_timeout=10)
 
 
 @pytest.fixture
-def config():
-    return ScanConfig(max_requests_per_second=5, request_timeout=10)
+def scanner():
+    return XssScanner()
 
 
 class TestReflectedXss:
 
-    def test_unencoded_reflection_produces_finding(self, config):
-        from scanners.xss.scanner import XssScanner
-        scanner = XssScanner()
-        target = ScanTarget(url="http://localhost:3000", scan_id=SCAN_ID, domain="localhost")
+    def test_unencoded_reflection_produces_finding(self, scanner):
+        target = ScanTarget(url="http://example.com", scan_id=SCAN_ID, domain="example.com")
 
-        mock_response = MagicMock()
+        crawl_html = '<form method="get" action="/search"><input name="q" value=""></form>'
 
-        with patch("requests.get") as mock_get, patch("requests.post") as mock_post:
-            crawl_response = MagicMock()
-            crawl_response.text = '<form method="get"><input name="q" value=""></form>'
-            mock_get.return_value = crawl_response
+        def mock_get(url, **kwargs):
+            r = MagicMock()
+            params = kwargs.get("params", {})
+            q = params.get("q", "")
+            if q:
+                # Payload is not encoded and returned, XSS is present
+                r.text = f"<html><body>Result: {q}</body></html>"
+            else:
+                r.text = crawl_html
+            return r
 
-            def side_effect(url, **kwargs):
-                params = kwargs.get("params", {})
-                payload = params.get("q", "")
-                r = MagicMock()
-                r.text = f"<html>Result: {payload}</html>"
-                return r
+        with patch("requests.get", side_effect=mock_get):
+            with patch("requests.post", return_value=MagicMock(text="")):
+                findings = scanner.scan(target, config)
 
-            mock_get.side_effect = side_effect
+        xss = [f for f in findings if "XSS" in f.title and "Header" not in f.title]
+        assert len(xss) > 0, "Expected XSS finding when payload reflects unencoded"
+        assert xss[0].severity == Severity.HIGH
 
-            findings = scanner.scan(target, config)
-            xss_findings = [f for f in findings if "XSS" in f.title]
-            assert len(xss_findings) > 0, "Expected XSS finding when payload reflects unencoded"
+    def test_encoded_reflection_no_finding(self, scanner):
+        # False positive control: should not produce finding when payload is HTML-encoded
+        target = ScanTarget(url="http://example.com", scan_id=SCAN_ID, domain="example.com")
 
-    def test_encoded_reflection_no_finding(self, config):
-        from scanners.xss.scanner import XssScanner
-        scanner = XssScanner()
-        target = ScanTarget(url="http://localhost:3000", scan_id=SCAN_ID, domain="localhost")
+        crawl_html = '<form method="get" action="/search"><input name="q" value=""></form>'
 
-        with patch("requests.get") as mock_get:
-            crawl_response = MagicMock()
-            crawl_response.text = '<form method="get"><input name="q" value=""></form>'
+        def mock_get(url, **kwargs):
+            r = MagicMock()
+            params = kwargs.get("params", {})
+            q = params.get("q", "")
+            if q:
+                # Encode edilmiş — güvenli
+                encoded = q.replace("<", "&lt;").replace(">", "&gt;")
+                r.text = f"<html><body>Result: {encoded}</body></html>"
+            else:
+                r.text = crawl_html
+            return r
 
-            def side_effect(url, **kwargs):
-                params = kwargs.get("params", {})
-                payload = params.get("q", "")
-                r = MagicMock()
-                encoded = payload.replace("<", "&lt;").replace(">", "&gt;")
-                r.text = f"<html>Result: {encoded}</html>"
-                return r
+        with patch("requests.get", side_effect=mock_get):
+            with patch("requests.post", return_value=MagicMock(text="")):
+                findings = scanner.scan(target, config)
 
-            mock_get.side_effect = side_effect
-            findings = scanner.scan(target, config)
-            xss_findings = [f for f in findings if "XSS" in f.title and "Header" not in f.title]
-            assert len(xss_findings) == 0, "Should not produce XSS finding when payload is HTML-encoded"
+        xss = [f for f in findings if "XSS" in f.title and "Header" not in f.title]
+        assert len(xss) == 0, "Should not produce finding when payload is HTML-encoded"
