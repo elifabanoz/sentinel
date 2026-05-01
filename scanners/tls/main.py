@@ -1,4 +1,3 @@
-import json
 import logging
 import os
 import time
@@ -7,6 +6,7 @@ import pika
 import psycopg2
 
 from sentinel_core import ScanTarget, ScanConfig, RateLimiter
+from sentinel_core.worker_base import process_with_retry
 from scanner import TlsScanner
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -34,11 +34,14 @@ def save_findings(findings, scan_id: str):
     try:
         with conn.cursor() as cur:
             for f in findings:
+                # ON CONFLICT DO NOTHING: idempotency garantisi
+                # Aynı job iki kez çalışsa aynı finding iki kez yazılmaz
                 cur.execute(
                     """
                     INSERT INTO findings
                         (scan_id, severity, owasp_category, title, description, evidence, remediation, cvss_score)
                     VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                    ON CONFLICT (scan_id, title, evidence) DO NOTHING
                     """,
                     (scan_id, f.severity.value, f.owasp_category,
                      f.title, f.description, f.evidence, f.remediation, f.cvss_score),
@@ -49,38 +52,28 @@ def save_findings(findings, scan_id: str):
         conn.close()
 
 
-def process_message(ch, method, properties, body):
-    """
-    RabbitMQ'dan gelen her job mesajını işler.
-    Manuel ack: işlem bitmeden mesaj queue'da kalır, crash durumunda kaybolmaz.
-    """
-    try:
-        job = json.loads(body)
-        scan_id = job["scan_id"]
-        url = job["url"]
-        domain = job["domain"]
+def handle_job(job: dict):
+    scan_id = job["scan_id"]
+    url = job["url"]
+    domain = job["domain"]
 
-        log.info(f"Starting TLS scan for {domain} (scan_id={scan_id})")
+    log.info(f"Starting TLS scan for {domain} (scan_id={scan_id})")
+    rate_limiter.acquire(domain)
 
-        rate_limiter.acquire(domain)
+    target = ScanTarget(url=url, scan_id=scan_id, domain=domain)
+    config = ScanConfig(max_requests_per_second=5, request_timeout=10)
 
-        target = ScanTarget(url=url, scan_id=scan_id, domain=domain)
-        config = ScanConfig(max_requests_per_second=5, request_timeout=10)
+    findings = scanner.scan(target, config)
+    log.info(f"Found {len(findings)} issues for {domain}")
 
-        findings = scanner.scan(target, config)
-        log.info(f"Found {len(findings)} issues for {domain}")
+    save_findings(findings, scan_id)
 
-        save_findings(findings, scan_id)
 
-        ch.basic_ack(delivery_tag=method.delivery_tag)
-
-    except Exception as e:
-        log.error(f"Error processing message: {e}")
-        ch.basic_nack(delivery_tag=method.delivery_tag, requeue=True)
+def on_message(ch, method, properties, body):
+    process_with_retry(ch, method, properties, body, handle_job)
 
 
 def connect_with_retry(max_retries=10, delay=5):
-    """RabbitMQ hazır olana kadar bekler"""
     for attempt in range(max_retries):
         try:
             credentials = pika.PlainCredentials(RABBIT_USER, RABBIT_PASS)
@@ -97,12 +90,9 @@ def main():
     connection = connect_with_retry()
     channel = connection.channel()
 
-    # Queue yoksa oluştur idempotent işlem
     channel.queue_declare(queue=QUEUE_NAME, durable=True)
-
-    # Aynı anda sadece 1 mesaj al işlem bitmeden yeni mesaj gelmesin
     channel.basic_qos(prefetch_count=1)
-    channel.basic_consume(queue=QUEUE_NAME, on_message_callback=process_message)
+    channel.basic_consume(queue=QUEUE_NAME, on_message_callback=on_message)
 
     log.info(f"Waiting for jobs on queue '{QUEUE_NAME}'...")
     channel.start_consuming()
