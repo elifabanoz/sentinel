@@ -41,7 +41,7 @@ export type Domain = {
   id: string;
   name: string;
   status: "PENDING" | "VERIFIED" | "FAILED";
-  txtRecord: string;
+  verificationToken: string;
 };
 
 export const domains = {

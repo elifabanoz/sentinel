@@ -27,6 +27,18 @@ export default function DashboardPage() {
       setDomainList(verified);
       if (verified.length > 0) setSelectedDomain(verified[0].id);
     });
+
+    const interval = setInterval(() => {
+      scans.list().then((list) => {
+        setScanList(list);
+        const hasActive = list.some(
+          (s) => s.status === "QUEUED" || s.status === "RUNNING"
+        );
+        if (!hasActive) clearInterval(interval);
+      }).catch(() => {});
+    }, 5000);
+
+    return () => clearInterval(interval);
   }, [router]);
 
   async function startScan() {

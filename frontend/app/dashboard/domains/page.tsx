@@ -91,7 +91,7 @@ export default function DomainsPage() {
                     Add this DNS TXT record to verify ownership:
                   </p>
                   <p className="font-mono text-xs text-[var(--primary)] break-all">
-                    {domain.txtRecord}
+                    {domain.verificationToken}
                   </p>
                 </div>
                 <button
