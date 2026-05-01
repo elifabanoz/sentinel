@@ -24,13 +24,16 @@ public class ScanController {
 
     private final ScanRepository scanRepository;
     private final DomainRepository domainRepository;
+    private final FindingRepository findingRepository;
     private final RabbitTemplate rabbitTemplate;
 
     public ScanController(ScanRepository scanRepository,
                           DomainRepository domainRepository,
+                          FindingRepository findingRepository,
                           RabbitTemplate rabbitTemplate) {
         this.scanRepository = scanRepository;
         this.domainRepository = domainRepository;
+        this.findingRepository = findingRepository;
         this.rabbitTemplate = rabbitTemplate;
     }
 
@@ -95,9 +98,35 @@ public class ScanController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
+    @GetMapping("/{id}/findings")
+    public ResponseEntity<?> findings(@AuthenticationPrincipal User user,
+                                      @PathVariable UUID id) {
+        return scanRepository.findByIdAndUserId(id, user.getId())
+                .map(scan -> ResponseEntity.ok(
+                        findingRepository.findByScanIdOrderByCvssScoreDesc(scan.getId())
+                                .stream()
+                                .map(f -> new FindingResponse(
+                                        f.getId().toString(),
+                                        f.getSeverity(),
+                                        f.getOwaspCategory(),
+                                        f.getTitle(),
+                                        f.getDescription(),
+                                        f.getEvidence(),
+                                        f.getRemediation(),
+                                        f.getCvssScore()
+                                ))
+                                .toList()
+                ))
+                .orElse(ResponseEntity.notFound().build());
+    }
+
     record CreateScanRequest(@NotNull UUID domainId) {}
 
     record CreateScanResponse(String scanId, String statusUrl) {}
+
+    record FindingResponse(String id, String severity, String owaspCategory,
+                           String title, String description, String evidence,
+                           String remediation, java.math.BigDecimal cvssScore) {}
 
     record ScanResponse(String id, String domainName, String status,
                         int progress, String startedAt, String finishedAt) {
