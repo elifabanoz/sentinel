@@ -1,0 +1,2 @@
+ALTER TABLE scans
+    ADD COLUMN completed_jobs INTEGER NOT NULL DEFAULT 0;
