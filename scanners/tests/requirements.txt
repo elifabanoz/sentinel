@@ -2,4 +2,5 @@ pytest==8.2.0
 pytest-mock==3.14.0
 requests==2.31.0
 beautifulsoup4==4.12.3
+redis==5.0.4
 sentinel-core @ file:///app/scanner-core
