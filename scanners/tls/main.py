@@ -6,7 +6,7 @@ import time
 import pika
 import psycopg2
 
-from sentinel_core import ScanTarget, ScanConfig
+from sentinel_core import ScanTarget, ScanConfig, RateLimiter
 from scanner import TlsScanner
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -19,6 +19,7 @@ DB_URL = os.getenv("DATABASE_URL", "postgresql://sentinel:sentinel_dev_pass@loca
 
 QUEUE_NAME = "scan.tls"
 scanner = TlsScanner()
+rate_limiter = RateLimiter(redis_host=os.getenv("REDIS_HOST", "localhost"))
 
 
 def get_db_connection():
@@ -61,6 +62,8 @@ def process_message(ch, method, properties, body):
 
         log.info(f"Starting TLS scan for {domain} (scan_id={scan_id})")
 
+        rate_limiter.acquire(domain)
+
         target = ScanTarget(url=url, scan_id=scan_id, domain=domain)
         config = ScanConfig(max_requests_per_second=5, request_timeout=10)
 
@@ -69,17 +72,15 @@ def process_message(ch, method, properties, body):
 
         save_findings(findings, scan_id)
 
-        # Başarılı  mesajı queue'dan sil
         ch.basic_ack(delivery_tag=method.delivery_tag)
 
     except Exception as e:
         log.error(f"Error processing message: {e}")
-        # Başarısız  mesajı queue'ya geri koy (retry mekanizması devreye girer)
         ch.basic_nack(delivery_tag=method.delivery_tag, requeue=True)
 
 
 def connect_with_retry(max_retries=10, delay=5):
-    """RabbitMQ hazır olana kadar bekler — docker-compose'da sıralama için"""
+    """RabbitMQ hazır olana kadar bekler"""
     for attempt in range(max_retries):
         try:
             credentials = pika.PlainCredentials(RABBIT_USER, RABBIT_PASS)
