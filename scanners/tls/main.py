@@ -7,6 +7,7 @@ import psycopg2
 
 from sentinel_core import ScanTarget, ScanConfig, RateLimiter
 from sentinel_core.worker_base import process_with_retry
+from sentinel_core.scan_reporter import complete_scan_job, fail_scan
 from scanner import TlsScanner
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -67,10 +68,15 @@ def handle_job(job: dict):
     log.info(f"Found {len(findings)} issues for {domain}")
 
     save_findings(findings, scan_id)
+    complete_scan_job(DB_URL, scan_id)
+
+
+def on_failure(job: dict):
+    fail_scan(DB_URL, job["scan_id"])
 
 
 def on_message(ch, method, properties, body):
-    process_with_retry(ch, method, properties, body, handle_job)
+    process_with_retry(ch, method, properties, body, handle_job, on_failure)
 
 
 def connect_with_retry(max_retries=10, delay=5):
