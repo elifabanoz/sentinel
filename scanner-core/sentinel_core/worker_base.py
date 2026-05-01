@@ -6,27 +6,27 @@ import pika
 
 log = logging.getLogger(__name__)
 
-# Exponential backoff bekleme süreleri 
 RETRY_DELAYS = [1, 5, 30]
 MAX_RETRIES = 3
 
 
 def get_retry_count(properties) -> int:
-    """Read retry count from message header."""
     headers = properties.headers or {}
     return headers.get("x-retry-count", 0)
 
 
-def process_with_retry(ch, method, properties, body, handler_fn):
+def process_with_retry(ch, method, properties, body, handler_fn, on_failure=None):
     """
     Tüm scanner worker'larının kullandığı ortak retry mekanizması.
     handler_fn başarısız olursa exponential backoff ile tekrar dener.
     MAX_RETRIES aşılınca nack + requeue=False : RabbitMQ DLX'e düşer.
+    on_failure: DLQ'ya düşünce çağrılan opsiyonel callback(job: dict)
     """
     retry_count = get_retry_count(properties)
+    job = json.loads(body)
 
     try:
-        handler_fn(json.loads(body))
+        handler_fn(job)
         ch.basic_ack(delivery_tag=method.delivery_tag)
 
     except Exception as e:
@@ -49,4 +49,9 @@ def process_with_retry(ch, method, properties, body, handler_fn):
             )
         else:
             log.error("Max retries exceeded. Sending to DLQ.")
+            if on_failure:
+                try:
+                    on_failure(job)
+                except Exception as cb_err:
+                    log.error(f"on_failure callback error: {cb_err}")
             ch.basic_nack(delivery_tag=method.delivery_tag, requeue=False)
