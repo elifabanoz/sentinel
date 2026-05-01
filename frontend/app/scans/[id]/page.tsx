@@ -31,10 +31,7 @@ export default function ScanDetailPage() {
 
   // Status polling
   useEffect(() => {
-    const token = localStorage.getItem("sentinel_token");
-    if (!token) { router.push("/login"); return; }
-
-    fetchScan();
+    fetchScan().catch(() => router.push("/login"));
 
     const interval = setInterval(async () => {
       const data = await fetchScan();

@@ -18,8 +18,6 @@ export default function DomainsPage() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    const token = localStorage.getItem("sentinel_token");
-    if (!token) { router.push("/login"); return; }
     domains.list().then(setDomainList).catch(() => router.push("/login"));
   }, [router]);
 

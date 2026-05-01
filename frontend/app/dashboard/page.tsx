@@ -21,9 +21,6 @@ export default function DashboardPage() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    const token = localStorage.getItem("sentinel_token");
-    if (!token) { router.push("/login"); return; }
-
     scans.list().then(setScanList).catch(() => router.push("/login"));
     domains.list().then((list) => {
       const verified = list.filter((d) => d.status === "VERIFIED");

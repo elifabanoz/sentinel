@@ -17,8 +17,7 @@ export default function RegisterPage() {
     setError("");
     setLoading(true);
     try {
-      const { token } = await auth.register(email, password);
-      localStorage.setItem("sentinel_token", token);
+      await auth.register(email, password);
       router.push("/dashboard");
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Registration failed");

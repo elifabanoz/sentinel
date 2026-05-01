@@ -17,8 +17,7 @@ export default function LoginPage() {
     setError("");
     setLoading(true);
     try {
-      const { token } = await auth.login(email, password);
-      localStorage.setItem("sentinel_token", token);
+      await auth.login(email, password);
       router.push("/dashboard");
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Login failed");

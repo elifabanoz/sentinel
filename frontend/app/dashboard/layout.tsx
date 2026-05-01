@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { auth } from "@/lib/api";
 
 const navItems = [
   { href: "/dashboard", label: "Scans", icon: "◈" },
@@ -12,8 +13,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const pathname = usePathname();
   const router = useRouter();
 
-  function logout() {
-    localStorage.removeItem("sentinel_token");
+  async function logout() {
+    await auth.logout();
     router.push("/login");
   }
 

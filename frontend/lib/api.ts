@@ -4,15 +4,11 @@ async function request<T>(
   path: string,
   options: RequestInit = {}
 ): Promise<T> {
-  const token = typeof window !== "undefined"
-    ? localStorage.getItem("sentinel_token")
-    : null;
-
   const res = await fetch(`${API_BASE}${path}`, {
     ...options,
+    credentials: "include",
     headers: {
       "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...options.headers,
     },
   });
@@ -28,15 +24,16 @@ async function request<T>(
 
 export const auth = {
   register: (email: string, password: string) =>
-    request<{ token: string }>("/auth/register", {
+    request<void>("/auth/register", {
       method: "POST",
       body: JSON.stringify({ email, password }),
     }),
   login: (email: string, password: string) =>
-    request<{ token: string }>("/auth/login", {
+    request<void>("/auth/login", {
       method: "POST",
       body: JSON.stringify({ email, password }),
     }),
+  logout: () => request<void>("/auth/logout", { method: "POST" }),
   me: () => request<{ email: string }>("/auth/me"),
 };
 
