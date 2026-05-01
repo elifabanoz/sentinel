@@ -68,12 +68,113 @@ services:
       rabbitmq:
         condition: service_healthy
 
+  # Frontend — Next.js dashboard
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        NEXT_PUBLIC_API_URL: http://localhost:8080
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api-gateway
+
+  # Scanner workers
+  scanner-tls:
+    build:
+      context: .
+      dockerfile: scanners/tls/Dockerfile
+    environment:
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_USER: sentinel
+      RABBITMQ_PASS: sentinel_dev_pass
+      DATABASE_URL: postgresql://sentinel:sentinel_dev_pass@postgres:5432/sentinel
+      REDIS_HOST: redis
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  scanner-sqli:
+    build:
+      context: .
+      dockerfile: scanners/sqli/Dockerfile
+    environment:
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_USER: sentinel
+      RABBITMQ_PASS: sentinel_dev_pass
+      DATABASE_URL: postgresql://sentinel:sentinel_dev_pass@postgres:5432/sentinel
+      REDIS_HOST: redis
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  scanner-xss:
+    build:
+      context: .
+      dockerfile: scanners/xss/Dockerfile
+    environment:
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_USER: sentinel
+      RABBITMQ_PASS: sentinel_dev_pass
+      DATABASE_URL: postgresql://sentinel:sentinel_dev_pass@postgres:5432/sentinel
+      REDIS_HOST: redis
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  scanner-osint:
+    build:
+      context: .
+      dockerfile: scanners/osint/Dockerfile
+    environment:
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_USER: sentinel
+      RABBITMQ_PASS: sentinel_dev_pass
+      DATABASE_URL: postgresql://sentinel:sentinel_dev_pass@postgres:5432/sentinel
+      REDIS_HOST: redis
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  scanner-deps:
+    build:
+      context: .
+      dockerfile: scanners/deps/Dockerfile
+    environment:
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_USER: sentinel
+      RABBITMQ_PASS: sentinel_dev_pass
+      DATABASE_URL: postgresql://sentinel:sentinel_dev_pass@postgres:5432/sentinel
+      REDIS_HOST: redis
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
   # OWASP Juice Shop — sadece lokal entegrasyon testleri için
-  # Production'da bu servis OLMAMALI
   juice-shop:
     image: bkimminich/juice-shop:latest
     ports:
-      - "3000:3000"
+      - "3001:3000"
     profiles:
       - dev
 
