@@ -5,7 +5,7 @@ import time
 import pika
 import psycopg2
 
-from sentinel_core import ScanTarget, ScanConfig, RateLimiter
+from sentinel_core import ScanTarget, ScanConfig, RateLimiter, declare_scan_queue
 from sentinel_core.worker_base import process_with_retry
 from sentinel_core.scan_reporter import complete_scan_job, fail_scan
 from scanner import TlsScanner
@@ -96,16 +96,7 @@ def main():
     connection = connect_with_retry()
     channel = connection.channel()
 
-    # Argümanlar Spring tarafındaki RabbitConfig.scanQueue() ile bire bir aynı olmalı;
-    # mismatch RabbitMQ'da PRECONDITION_FAILED (406) ile channel'ı kapatır.
-    channel.queue_declare(
-        queue=QUEUE_NAME,
-        durable=True,
-        arguments={
-            "x-dead-letter-exchange": "sentinel.dlx",
-            "x-dead-letter-routing-key": "dlq",
-        },
-    )
+    declare_scan_queue(channel, QUEUE_NAME)
     channel.basic_qos(prefetch_count=1)
     channel.basic_consume(queue=QUEUE_NAME, on_message_callback=on_message)
 
