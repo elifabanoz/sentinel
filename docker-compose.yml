@@ -84,6 +84,7 @@ services:
     build:
       context: .
       dockerfile: scanners/tls/Dockerfile
+    restart: unless-stopped
     environment:
       RABBITMQ_HOST: rabbitmq
       RABBITMQ_USER: sentinel
@@ -102,6 +103,7 @@ services:
     build:
       context: .
       dockerfile: scanners/sqli/Dockerfile
+    restart: unless-stopped
     environment:
       RABBITMQ_HOST: rabbitmq
       RABBITMQ_USER: sentinel
@@ -120,6 +122,7 @@ services:
     build:
       context: .
       dockerfile: scanners/xss/Dockerfile
+    restart: unless-stopped
     environment:
       RABBITMQ_HOST: rabbitmq
       RABBITMQ_USER: sentinel
@@ -138,6 +141,7 @@ services:
     build:
       context: .
       dockerfile: scanners/osint/Dockerfile
+    restart: unless-stopped
     environment:
       RABBITMQ_HOST: rabbitmq
       RABBITMQ_USER: sentinel
@@ -156,6 +160,7 @@ services:
     build:
       context: .
       dockerfile: scanners/deps/Dockerfile
+    restart: unless-stopped
     environment:
       RABBITMQ_HOST: rabbitmq
       RABBITMQ_USER: sentinel
