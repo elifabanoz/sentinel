@@ -27,8 +27,10 @@ public class RabbitConfig {
         return BindingBuilder.bind(deadLetterQueue()).to(deadLetterExchange()).with("dlq");
     }
 
-    // Her scanner queue'su: durable + DLX 
+    // Her scanner queue'su: durable + DLX
     // x-dead-letter-exchange: 3 nack sonrası mesajı DLX'e gönder
+    // KEEP IN SYNC: scanner-core/sentinel_core/queue_config.py (SCAN_QUEUE_ARGUMENTS).
+    // Argüman mismatch'i RabbitMQ'da PRECONDITION_FAILED (406) üretir.
     private Queue scanQueue(String name) {
         return QueueBuilder.durable(name)
                 .withArgument("x-dead-letter-exchange", "sentinel.dlx")

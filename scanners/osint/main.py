@@ -4,7 +4,7 @@ import time
 
 import pika
 
-from sentinel_core import ScanTarget, ScanConfig, RateLimiter
+from sentinel_core import ScanTarget, ScanConfig, RateLimiter, declare_scan_queue
 from sentinel_core.worker_base import process_with_retry
 from sentinel_core.scan_reporter import complete_scan_job, fail_scan
 from scanner import OsintScanner
@@ -94,7 +94,7 @@ def main():
     connection = connect_with_retry()
     channel = connection.channel()
 
-    channel.queue_declare(queue=QUEUE_NAME, durable=True)
+    declare_scan_queue(channel, QUEUE_NAME)
     channel.basic_qos(prefetch_count=1)
     channel.basic_consume(queue=QUEUE_NAME, on_message_callback=on_message)
 
