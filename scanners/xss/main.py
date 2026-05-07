@@ -6,7 +6,7 @@ import time
 import pika
 import psycopg2
 
-from sentinel_core import ScanTarget, ScanConfig
+from sentinel_core import ScanTarget, ScanConfig, declare_scan_queue
 from scanner import XssScanner
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -81,16 +81,7 @@ def main():
     log.info("XSS Scanner worker starting...")
     connection = connect_with_retry()
     channel = connection.channel()
-    # Argümanlar Spring tarafındaki RabbitConfig.scanQueue() ile bire bir aynı olmalı;
-    # mismatch RabbitMQ'da PRECONDITION_FAILED (406) ile channel'ı kapatır.
-    channel.queue_declare(
-        queue=QUEUE_NAME,
-        durable=True,
-        arguments={
-            "x-dead-letter-exchange": "sentinel.dlx",
-            "x-dead-letter-routing-key": "dlq",
-        },
-    )
+    declare_scan_queue(channel, QUEUE_NAME)
     channel.basic_qos(prefetch_count=1)
     channel.basic_consume(queue=QUEUE_NAME, on_message_callback=process_message)
     log.info(f"Waiting for jobs on '{QUEUE_NAME}'...")
