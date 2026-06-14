@@ -16,6 +16,7 @@ export default function DomainsPage() {
   const [newDomain, setNewDomain] = useState("");
   const [adding, setAdding] = useState(false);
   const [error, setError] = useState("");
+  const [copiedId, setCopiedId] = useState<string | null>(null);
 
   useEffect(() => {
     domains.list().then(setDomainList).catch(() => router.push("/login"));
@@ -42,6 +43,16 @@ export default function DomainsPage() {
       setDomainList((prev) => prev.map((d) => (d.id === id ? updated : d)));
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Verification failed");
+    }
+  }
+
+  async function copyToken(id: string, token: string) {
+    try {
+      await navigator.clipboard.writeText(token);
+      setCopiedId(id);
+      setTimeout(() => setCopiedId((current) => (current === id ? null : current)), 2000);
+    } catch {
+      setError("Failed to copy to clipboard");
     }
   }
 
@@ -90,15 +101,24 @@ export default function DomainsPage() {
                   <p className="text-xs text-[var(--muted-foreground)]">
                     Add this DNS TXT record to verify ownership:
                   </p>
-                  <p className="font-mono text-xs text-[var(--primary)] break-all">
-                    {domain.verificationToken}
-                  </p>
+                  <div className="flex items-center gap-2">
+                    <p className="font-mono text-xs text-[var(--primary)] break-all flex-1">
+                      {domain.verificationToken}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => copyToken(domain.id, domain.verificationToken)}
+                      className="shrink-0 text-xs text-[var(--muted-foreground)] hover:text-[var(--foreground)] border border-[var(--border)] rounded-md px-2 py-1 transition-colors"
+                    >
+                      {copiedId === domain.id ? "Copied!" : "Copy"}
+                    </button>
+                  </div>
                 </div>
                 <button
                   onClick={() => verify(domain.id)}
                   className="text-sm text-[var(--primary)] hover:underline"
                 >
-                  I've added it — verify now →
+                  I&apos;ve added it — verify now →
                 </button>
               </>
             )}

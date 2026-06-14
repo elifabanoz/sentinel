@@ -6,7 +6,7 @@ import time
 import pika
 import psycopg2
 
-from sentinel_core import ScanTarget, ScanConfig, declare_scan_queue
+from sentinel_core import ScanTarget, ScanConfig, declare_scan_queue, start_health_server
 from scanner import XssScanner
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -79,6 +79,7 @@ def connect_with_retry(max_retries=10, delay=5):
 
 def main():
     log.info("XSS Scanner worker starting...")
+    start_health_server()
     connection = connect_with_retry()
     channel = connection.channel()
     declare_scan_queue(channel, QUEUE_NAME)

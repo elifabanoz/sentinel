@@ -98,6 +98,23 @@ public class ScanController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
+    @DeleteMapping("/{id}")
+    public ResponseEntity<?> cancel(@AuthenticationPrincipal User user,
+                                    @PathVariable UUID id) {
+        return scanRepository.findByIdAndUserId(id, user.getId())
+                .<ResponseEntity<?>>map(scan -> {
+                    if (!scan.getStatus().equals("QUEUED") && !scan.getStatus().equals("RUNNING")) {
+                        return ResponseEntity.badRequest()
+                                .body("Only QUEUED or RUNNING scans can be cancelled.");
+                    }
+                    scan.setStatus("CANCELLED");
+                    scan.setFinishedAt(java.time.Instant.now());
+                    scanRepository.save(scan);
+                    return ResponseEntity.ok(ScanResponse.from(scan));
+                })
+                .orElse(ResponseEntity.notFound().build());
+    }
+
     @GetMapping("/{id}/findings")
     public ResponseEntity<?> findings(@AuthenticationPrincipal User user,
                                       @PathVariable UUID id) {

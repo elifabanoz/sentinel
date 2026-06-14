@@ -55,7 +55,7 @@ export const domains = {
 export type Scan = {
   id: string;
   domainName: string;
-  status: "QUEUED" | "RUNNING" | "COMPLETED" | "FAILED";
+  status: "QUEUED" | "RUNNING" | "COMPLETED" | "FAILED" | "CANCELLED";
   progress: number;
   startedAt: string;
   finishedAt: string | null;
@@ -85,4 +85,5 @@ export const scans = {
     ),
   get: (id: string) => request<Scan>(`/scans/${id}`),
   findings: (id: string) => request<Finding[]>(`/scans/${id}/findings`),
+  cancel: (id: string) => request<Scan>(`/scans/${id}`, { method: "DELETE" }),
 };

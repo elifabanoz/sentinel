@@ -10,6 +10,7 @@ const STATUS_COLORS: Record<string, string> = {
   RUNNING:   "text-[var(--primary)] border-[var(--primary)]",
   COMPLETED: "text-emerald-400 border-emerald-400",
   FAILED:    "text-[var(--destructive)] border-[var(--destructive)]",
+  CANCELLED: "text-[var(--muted-foreground)] border-[var(--border)]",
 };
 
 export default function DashboardPage() {
@@ -40,6 +41,17 @@ export default function DashboardPage() {
 
     return () => clearInterval(interval);
   }, [router]);
+
+  async function cancelScan(e: React.MouseEvent, id: string) {
+    e.preventDefault();
+    e.stopPropagation();
+    try {
+      const updated = await scans.cancel(id);
+      setScanList((prev) => prev.map((s) => (s.id === id ? updated : s)));
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to cancel scan");
+    }
+  }
 
   async function startScan() {
     if (!selectedDomain) return;
@@ -135,6 +147,15 @@ export default function DashboardPage() {
                 >
                   {scan.status}
                 </span>
+
+                {(scan.status === "QUEUED" || scan.status === "RUNNING") && (
+                  <button
+                    onClick={(e) => cancelScan(e, scan.id)}
+                    className="text-xs text-[var(--muted-foreground)] hover:text-[var(--destructive)] border border-[var(--border)] rounded-md px-2 py-1 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                )}
               </div>
             </Link>
           ))}
