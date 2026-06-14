@@ -33,6 +33,7 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) and [docs/adr/](docs/adr/) for design dec
 ```bash
 git clone https://github.com/your-username/sentinel.git
 cd sentinel
+cp .env.example .env   # adjust credentials/JWT secret for non-local use
 docker compose up --build
 ```
 
