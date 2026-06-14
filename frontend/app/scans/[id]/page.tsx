@@ -31,11 +31,12 @@ export default function ScanDetailPage() {
 
   // Status polling
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- initial fetch on mount, setState happens after the async await
     fetchScan().catch(() => router.push("/login"));
 
     const interval = setInterval(async () => {
       const data = await fetchScan();
-      if (data.status === "COMPLETED" || data.status === "FAILED") {
+      if (data.status === "COMPLETED" || data.status === "FAILED" || data.status === "CANCELLED") {
         clearInterval(interval);
         if (data.status === "COMPLETED") {
           scans.findings(id).then(setFindings);
@@ -100,6 +101,12 @@ export default function ScanDetailPage() {
           <p className="text-xs text-[var(--muted-foreground)]">
             Running 5 scanners in parallel — TLS, SQLi, XSS, OSINT, Dependencies
           </p>
+          <button
+            onClick={async () => setScan(await scans.cancel(id))}
+            className="text-xs text-[var(--muted-foreground)] hover:text-[var(--destructive)] border border-[var(--border)] rounded-md px-2 py-1 transition-colors"
+          >
+            Cancel scan
+          </button>
         </div>
       )}
 
@@ -107,6 +114,14 @@ export default function ScanDetailPage() {
         <div className="rounded-lg border border-[var(--destructive)] bg-[var(--card)] p-6">
           <p className="text-sm text-[var(--destructive)]">
             Scan failed. Check that the domain is reachable and try again.
+          </p>
+        </div>
+      )}
+
+      {scan.status === "CANCELLED" && (
+        <div className="rounded-lg border border-[var(--border)] bg-[var(--card)] p-6">
+          <p className="text-sm text-[var(--muted-foreground)]">
+            Scan was cancelled.
           </p>
         </div>
       )}

@@ -5,7 +5,7 @@ import time
 import pika
 import psycopg2
 
-from sentinel_core import ScanTarget, ScanConfig, RateLimiter, declare_scan_queue
+from sentinel_core import ScanTarget, ScanConfig, RateLimiter, declare_scan_queue, start_health_server
 from sentinel_core.worker_base import process_with_retry
 from sentinel_core.scan_reporter import complete_scan_job, fail_scan
 from scanner import TlsScanner
@@ -93,6 +93,7 @@ def connect_with_retry(max_retries=10, delay=5):
 
 def main():
     log.info("TLS Scanner worker starting...")
+    start_health_server()
     connection = connect_with_retry()
     channel = connection.channel()
 
