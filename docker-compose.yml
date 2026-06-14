@@ -4,15 +4,15 @@ services:
   postgres:
     image: postgres:16-alpine
     environment:
-      POSTGRES_DB: sentinel
-      POSTGRES_USER: sentinel
-      POSTGRES_PASSWORD: sentinel_dev_pass
+      POSTGRES_DB: ${POSTGRES_DB:-sentinel}
+      POSTGRES_USER: ${POSTGRES_USER:-sentinel}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-sentinel_dev_pass}
     ports:
       - "5432:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U sentinel"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-sentinel}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -34,8 +34,8 @@ services:
   rabbitmq:
     image: rabbitmq:3.13-management-alpine
     environment:
-      RABBITMQ_DEFAULT_USER: sentinel
-      RABBITMQ_DEFAULT_PASS: sentinel_dev_pass
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER:-sentinel}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS:-sentinel_dev_pass}
     ports:
       - "5672:5672"    # AMQP
       - "15672:15672"  # Management UI
@@ -53,13 +53,14 @@ services:
     ports:
       - "8080:8080"
     environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/sentinel
-      SPRING_DATASOURCE_USERNAME: sentinel
-      SPRING_DATASOURCE_PASSWORD: sentinel_dev_pass
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-sentinel}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-sentinel}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-sentinel_dev_pass}
       SPRING_RABBITMQ_HOST: rabbitmq
-      SPRING_RABBITMQ_USERNAME: sentinel
-      SPRING_RABBITMQ_PASSWORD: sentinel_dev_pass
+      SPRING_RABBITMQ_USERNAME: ${RABBITMQ_DEFAULT_USER:-sentinel}
+      SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_DEFAULT_PASS:-sentinel_dev_pass}
       SPRING_DATA_REDIS_HOST: redis
+      JWT_SECRET: ${JWT_SECRET:-sentinel-dev-secret-key-change-in-production-min-32-chars}
     depends_on:
       postgres:
         condition: service_healthy
@@ -73,7 +74,7 @@ services:
     build:
       context: ./frontend
       args:
-        NEXT_PUBLIC_API_URL: http://localhost:8080
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8080}
     ports:
       - "3000:3000"
     depends_on:
@@ -87,9 +88,9 @@ services:
     restart: unless-stopped
     environment:
       RABBITMQ_HOST: rabbitmq
-      RABBITMQ_USER: sentinel
-      RABBITMQ_PASS: sentinel_dev_pass
-      DATABASE_URL: postgresql://sentinel:sentinel_dev_pass@postgres:5432/sentinel
+      RABBITMQ_USER: ${RABBITMQ_DEFAULT_USER:-sentinel}
+      RABBITMQ_PASS: ${RABBITMQ_DEFAULT_PASS:-sentinel_dev_pass}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-sentinel}:${POSTGRES_PASSWORD:-sentinel_dev_pass}@postgres:5432/${POSTGRES_DB:-sentinel}
       REDIS_HOST: redis
     depends_on:
       postgres:
@@ -106,9 +107,9 @@ services:
     restart: unless-stopped
     environment:
       RABBITMQ_HOST: rabbitmq
-      RABBITMQ_USER: sentinel
-      RABBITMQ_PASS: sentinel_dev_pass
-      DATABASE_URL: postgresql://sentinel:sentinel_dev_pass@postgres:5432/sentinel
+      RABBITMQ_USER: ${RABBITMQ_DEFAULT_USER:-sentinel}
+      RABBITMQ_PASS: ${RABBITMQ_DEFAULT_PASS:-sentinel_dev_pass}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-sentinel}:${POSTGRES_PASSWORD:-sentinel_dev_pass}@postgres:5432/${POSTGRES_DB:-sentinel}
       REDIS_HOST: redis
     depends_on:
       postgres:
@@ -125,9 +126,9 @@ services:
     restart: unless-stopped
     environment:
       RABBITMQ_HOST: rabbitmq
-      RABBITMQ_USER: sentinel
-      RABBITMQ_PASS: sentinel_dev_pass
-      DATABASE_URL: postgresql://sentinel:sentinel_dev_pass@postgres:5432/sentinel
+      RABBITMQ_USER: ${RABBITMQ_DEFAULT_USER:-sentinel}
+      RABBITMQ_PASS: ${RABBITMQ_DEFAULT_PASS:-sentinel_dev_pass}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-sentinel}:${POSTGRES_PASSWORD:-sentinel_dev_pass}@postgres:5432/${POSTGRES_DB:-sentinel}
       REDIS_HOST: redis
     depends_on:
       postgres:
@@ -144,9 +145,9 @@ services:
     restart: unless-stopped
     environment:
       RABBITMQ_HOST: rabbitmq
-      RABBITMQ_USER: sentinel
-      RABBITMQ_PASS: sentinel_dev_pass
-      DATABASE_URL: postgresql://sentinel:sentinel_dev_pass@postgres:5432/sentinel
+      RABBITMQ_USER: ${RABBITMQ_DEFAULT_USER:-sentinel}
+      RABBITMQ_PASS: ${RABBITMQ_DEFAULT_PASS:-sentinel_dev_pass}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-sentinel}:${POSTGRES_PASSWORD:-sentinel_dev_pass}@postgres:5432/${POSTGRES_DB:-sentinel}
       REDIS_HOST: redis
     depends_on:
       postgres:
@@ -163,9 +164,9 @@ services:
     restart: unless-stopped
     environment:
       RABBITMQ_HOST: rabbitmq
-      RABBITMQ_USER: sentinel
-      RABBITMQ_PASS: sentinel_dev_pass
-      DATABASE_URL: postgresql://sentinel:sentinel_dev_pass@postgres:5432/sentinel
+      RABBITMQ_USER: ${RABBITMQ_DEFAULT_USER:-sentinel}
+      RABBITMQ_PASS: ${RABBITMQ_DEFAULT_PASS:-sentinel_dev_pass}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-sentinel}:${POSTGRES_PASSWORD:-sentinel_dev_pass}@postgres:5432/${POSTGRES_DB:-sentinel}
       REDIS_HOST: redis
     depends_on:
       postgres:
